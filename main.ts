@@ -1,4 +1,5 @@
-import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {App, Notice, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {SingleTextSubmissionModal} from "./modals";
 
 interface pluginSettings {
 	bibliographicRecordLocation: string;
@@ -53,10 +54,16 @@ export default class bookPlugin extends Plugin {
 	ribbonDebugIcon() {
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Debug Button', (evt: MouseEvent) => {
-			console.log("DEBUG CONTENT HERE");
 			// new BooleanPromptModal(this.app, "Yes or No?!", (result) => new Notice(String(result))).open();
-			// new NoticeModal(this.app, "NOTICE! Something important").open();
-			// new SingleTextSubmissionModal(this.app, "Lorem Ipsum", "TEST", (result) => new NoticeModal(this.app, result).open()).open();
+			let textSubmission = new SingleTextSubmissionModal(this.app, "What's the book's title?", (result: string) => new Notice(result));
+			textSubmission.setOnCancelCallback(() => {
+				textSubmission.close();
+				new Notice("Canceled!")
+			});
+			textSubmission.setInputValidatorCallback((input: string) => {
+				return !input.contains("/") || input == "";
+			});
+			textSubmission.open();
 		});
 		// Allows manipulation through CSS (the one use I am aware of for this command)
 		ribbonIconEl.addClass('my-plugin-ribbon-class');

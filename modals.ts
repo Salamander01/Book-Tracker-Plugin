@@ -3,82 +3,45 @@ import {App, Modal, Setting} from "obsidian";
 abstract class ExtendedModal extends Modal {
 
 	/**
-	 * Important to note that both buttons close the Modal; maybe should change?
 	 * @param trueText
 	 * @param falseText
 	 * @param onSubmit
+	 * @param setting quite possibly not needed, but could be useful
 	 * @protected
 	 */
-	protected booleanButtons(trueText: string, falseText: string, onSubmit: (result: boolean) => void) {
-		const buttonContainer = this.contentEl.createDiv({
-			cls: 'boolean-modal-buttons'
-		});
-
-		let buttonSetting = new Setting(buttonContainer);
-
+	protected booleanButtons(trueText: string, falseText: string, onSubmit: (result: boolean) => void, setting: Setting = new Setting(this.contentEl)) {
 		// False button
-		buttonSetting.addButton((button) => {
+		setting.addButton((button) => {
 			button.buttonEl.addClass("false-button-class");
 			button.setButtonText(falseText);
-			button.setCta();
-			button.onClick(() => {
-				this.close();
-				onSubmit(false);
-			});
+			button.onClick(() => onSubmit(false));
 		});
 
 		// True button
-		buttonSetting.addButton((button) => {
+		setting.addButton((button) => {
 			button.buttonEl.addClass("true-button-class");
 			button.setButtonText(trueText);
 			button.setCta();
-			button.onClick(() => {
-				this.close();
-				onSubmit(true);
-			});
-		});
-
-		buttonContainer.createEl('style', {
-			text: `
-			.boolean-modal-buttons .setting-item {
-				display: flex;
-				justify-content: center;
-				padding: 0;
-			}
-			.boolean-modal-buttons .setting-item-control {
-				width: 100%;
-				display: flex;
-				justify-content: space-between;
-			}
-			.boolean-modal-buttons .true-button-class {
-				margin-right: auto;
-				margin-left: 25%;
-			}
-			.boolean-modal-buttons .false-button-class {
-				margin-left: auto;
-				margin-right: 25%;
-			}
-			.modal-title {
-				text-align: center;
-			}
-			.boolean-modal-buttons {
-				margin-top: 20px;
-			}
-			`
+			button.onClick(() => onSubmit(true));
 		});
 	}
 }
 
 export class NoticeModal extends Modal {
-	constructor(app: App, prompt: string) {
+	constructor(app: App, message: string, onAck?: () => void) {
 		super(app);
-		this.setTitle(prompt);
+		this.setTitle(message);
+
+		// TODO add listener that'll submit when enter is hit
 
 		let buttonSetting = new Setting(this.contentEl);
 		buttonSetting.addButton((button) => {
 			button.setButtonText("Ok");
 			button.setCta();
-			button.onClick(() => this.close());
+			button.onClick(() => {
+				this.close();
+				onAck?.();
+			});
 		});
 	}
 }
@@ -93,16 +56,53 @@ export class BooleanPromptModal extends ExtendedModal {
 }
 
 export class SingleTextSubmissionModal extends ExtendedModal {
-	constructor(app: App, prompt: string, fieldName: string, onSubmit: (result: string) => void, onCancel: () => void = () => {}) {
+	private onCancel: () => void = () => this.close();
+	private inputValidator: (input: string) => boolean = () => true;
+	private readonly onSubmit: (result: string) => void;
+
+	private invalidNotification = "Invalid Input";
+	input: string = "";
+
+	constructor(app: App, prompt: string, onSubmit: (result: string) => void) {
 		super(app);
+		this.onSubmit = onSubmit
+
 		this.setTitle(prompt);
 
-		let input = "";
+		let settingObj = new Setting(this.contentEl);
 
-		let textSetting = new Setting(this.contentEl);
-		textSetting.setName(fieldName);
-		textSetting.addText((text) => text.onChange((value) => input = value));
+		settingObj.addText((textComponent) => {
+			textComponent.onChange((value) => this.input = value);
+			textComponent.inputEl.style.width = "100%"; // Didn't make it span the entire width. More fiddling with css necessary
+			textComponent.inputEl.addEventListener("keydown", (event: KeyboardEvent) => {
+				if (event.key === "Enter") {
+					event.preventDefault();
+					this.attemptSubmission();
+				}
+			});
+		});
 
-		this.booleanButtons("Submit", "Cancel", (result) => result ? onSubmit(input) : onCancel());
+		this.booleanButtons("Submit", "Cancel", (result) => result ? this.attemptSubmission() : this.onCancel(), settingObj);
+	}
+
+	public setOnCancelCallback(callback: () => void) {
+		this.onCancel = callback;
+	}
+
+	public setInputValidatorCallback(callback: (input: string) => boolean) {
+		this.inputValidator = callback;
+	}
+
+	public setInvalidNotification(notif: string) {
+		this.invalidNotification = notif;
+	}
+
+	private attemptSubmission() {
+		if (this.inputValidator(this.input)) {
+			this.onSubmit(this.input);
+			this.close();
+		} else {
+			new NoticeModal(this.app, this.invalidNotification).open();
+		}
 	}
 }

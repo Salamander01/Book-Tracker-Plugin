@@ -6,3 +6,30 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+
+
+/*.boolean-modal-buttons .setting-item {*/
+/*	display: flex;*/
+/*	justify-content: center;*/
+/*	padding: 0;*/
+/*}*/
+/*.boolean-modal-buttons .setting-item-control {*/
+/*	width: 100%;*/
+/*	display: flex;*/
+/*	justify-content: space-between;*/
+/*}*/
+/*.boolean-modal-buttons .true-button-class {*/
+/*	margin-right: auto;*/
+/*	margin-left: 25%;*/
+/*}*/
+/*.boolean-modal-buttons .false-button-class {*/
+/*	margin-left: auto;*/
+/*	margin-right: 25%;*/
+/*}*/
+/*.modal-title {*/
+/*	text-align: center;*/
+/*}*/
+/*.boolean-modal-buttons {*/
+/*	margin-top: 20px;*/
+/*}*/
