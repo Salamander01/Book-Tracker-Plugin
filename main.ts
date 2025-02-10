@@ -1,5 +1,5 @@
-import {App, Notice, Plugin, PluginSettingTab, Setting} from 'obsidian';
-import {SingleTextSubmissionModal} from "./modals";
+import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {BooleanPromptModal, NoticeModal, SingleTextSubmissionModal} from "./modals";
 
 interface pluginSettings {
 	bibliographicRecordLocation: string;
@@ -17,15 +17,13 @@ export default class bookPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		this.ribbonDebugIcon();
+		// this.ribbonDebugIcon();
 
 		// TODO add bibliographic entry
 		this.addCommand({
 			id: "add-bibliographic-entry",
 			name: "Add Bibliographic Entry",
-			callback: () => {
-				throw new Error("NOT IMPLEMENTED");
-			}
+			callback: () => this.addBibliographicEntry() // TODO does this need to be awaited?
 		});
 
 		// This adds the settings tab
@@ -55,15 +53,7 @@ export default class bookPlugin extends Plugin {
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Debug Button', (evt: MouseEvent) => {
 			// new BooleanPromptModal(this.app, "Yes or No?!", (result) => new Notice(String(result))).open();
-			let textSubmission = new SingleTextSubmissionModal(this.app, "What's the book's title?", (result: string) => new Notice(result));
-			textSubmission.setOnCancelCallback(() => {
-				textSubmission.close();
-				new Notice("Canceled!")
-			});
-			textSubmission.setInputValidatorCallback((input: string) => {
-				return !input.contains("/") || input == "";
-			});
-			textSubmission.open();
+
 		});
 		// Allows manipulation through CSS (the one use I am aware of for this command)
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -77,6 +67,38 @@ export default class bookPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	duplicateCheck(fileName: string): boolean {
+		return this.app.vault.getFileByPath(this.settings.bibliographicRecordLocation + "/" + fileName) === null;
+	}
+
+	// Functionality Methods
+
+	async addBibliographicEntry() {
+		let bookTitle: string;
+
+		let bookTitleInputModal = new SingleTextSubmissionModal(this.app, "What's the book's title?");
+
+		bookTitleInputModal.setInputValidator((input) => {
+			if (input.length == 0 || input.contains("/")) return false;
+			if (this.duplicateCheck(input)) {
+				new BooleanPromptModal(this.app, "This file already exists. Would you like to override it?", (result) => {
+					if (!result) bookTitleInputModal.close()
+				});
+			}
+			return true;
+		});
+
+		bookTitleInputModal.setInvalidInputCallback(() => {
+			new NoticeModal(this.app, "Input can't be empty or contain '/'.");
+		});
+
+		let userInput = await bookTitleInputModal.getInput();
+		if (!userInput) return;
+		bookTitle = userInput;
+
+		console.log(bookTitle);
 	}
 }
 

@@ -32,8 +32,6 @@ export class NoticeModal extends Modal {
 		super(app);
 		this.setTitle(message);
 
-		// TODO add listener that'll submit when enter is hit
-
 		let buttonSetting = new Setting(this.contentEl);
 		buttonSetting.addButton((button) => {
 			button.setButtonText("Ok");
@@ -43,6 +41,8 @@ export class NoticeModal extends Modal {
 				onAck?.();
 			});
 		});
+
+		this.open();
 	}
 }
 
@@ -55,17 +55,41 @@ export class BooleanPromptModal extends ExtendedModal {
 	}
 }
 
-export class SingleTextSubmissionModal extends ExtendedModal {
-	private onCancel: () => void = () => this.close();
-	private inputValidator: (input: string) => boolean = () => true;
-	private readonly onSubmit: (result: string) => void;
+export class AsyncBooleanPromptModal extends ExtendedModal {
+	private resolvePromise: (value: boolean) => void;
 
-	private invalidNotification = "Invalid Input";
-	input: string = "";
-
-	constructor(app: App, prompt: string, onSubmit: (result: string) => void) {
+	constructor(app: App, prompt: string, trueText: string = "Yes", falseText: string = "No") {
 		super(app);
-		this.onSubmit = onSubmit
+		this.setTitle(prompt);
+
+		this.booleanButtons(trueText, falseText, (result) => this.resolvePromise(result));
+
+		this.open();
+	}
+
+	async getInput(): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
+			this.resolvePromise = resolve;
+		});
+	}
+}
+
+export class SingleTextSubmissionModal extends ExtendedModal {
+	private resolvePromise: (value: string | null) => void;
+	private readonly inputPromise: Promise<string | null>;
+
+	private inputValidator: (input: string) => boolean = () => true;
+	private invalidCallback: (input: string) => void = () => new NoticeModal(this.app, "Invalid Input");
+
+	private input: string = "";
+
+
+	constructor(app: App, prompt: string) {
+		super(app);
+
+		this.inputPromise = new Promise<string | null>((resolve) => {
+			this.resolvePromise = resolve;
+		});
 
 		this.setTitle(prompt);
 
@@ -82,27 +106,29 @@ export class SingleTextSubmissionModal extends ExtendedModal {
 			});
 		});
 
-		this.booleanButtons("Submit", "Cancel", (result) => result ? this.attemptSubmission() : this.onCancel(), settingObj);
+		this.booleanButtons("Submit", "Cancel", (result) => result ? this.attemptSubmission() : this.resolvePromise(null), settingObj);
+
+		this.open();
 	}
 
-	public setOnCancelCallback(callback: () => void) {
-		this.onCancel = callback;
-	}
-
-	public setInputValidatorCallback(callback: (input: string) => boolean) {
-		this.inputValidator = callback;
-	}
-
-	public setInvalidNotification(notif: string) {
-		this.invalidNotification = notif;
+	public async getInput(): Promise<string | null> {
+		return this.inputPromise;
 	}
 
 	private attemptSubmission() {
 		if (this.inputValidator(this.input)) {
-			this.onSubmit(this.input);
+			this.resolvePromise(this.input);
 			this.close();
 		} else {
-			new NoticeModal(this.app, this.invalidNotification).open();
+			this.invalidCallback(this.input);
 		}
+	}
+
+	public setInputValidator(callback: (input: string) => boolean) {
+		this.inputValidator = callback;
+	}
+
+	public setInvalidInputCallback(callback: (input: string) => void) {
+		this.invalidCallback = callback;
 	}
 }
